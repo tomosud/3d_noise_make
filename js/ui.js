@@ -7,6 +7,7 @@
 
     var worker = null;
     var currentResult = null;
+    var tileMode = false; // false = single, true = 3x3 tile
 
     // --- Read all parameters from UI ---
     function readConfig() {
@@ -15,7 +16,7 @@
             seed: parseInt(document.getElementById('seed').value, 10),
             frequency: parseInt(document.getElementById('frequency').value, 10),
             octaves: parseInt(document.getElementById('octaves').value, 10),
-            lacunarity: parseFloat(document.getElementById('lacunarity').value),
+            lacunarity: parseInt(document.getElementById('lacunarity').value, 10),
             gain: parseFloat(document.getElementById('gain').value),
             warpStrength: parseFloat(document.getElementById('warpStrength').value),
             gamma: parseFloat(document.getElementById('gamma').value),
@@ -65,19 +66,11 @@
         document.getElementById('progress-text').textContent = p + '%';
     }
 
-    // --- Slice preview ---
-    function updateSlicePreview(z) {
-        if (!currentResult) return;
-
-        var canvas = document.getElementById('preview-canvas');
-        var ctx = canvas.getContext('2d');
+    // --- Build ImageData for a single Z slice ---
+    function buildSliceImageData(z) {
         var N = currentResult.resolution;
         var volume = currentResult.volume;
-
-        canvas.width = N;
-        canvas.height = N;
-
-        var imageData = ctx.createImageData(N, N);
+        var imageData = new ImageData(N, N);
         var pixels = imageData.data;
 
         for (var y = 0; y < N; y++) {
@@ -92,10 +85,79 @@
                 pixels[idx + 3] = 255;
             }
         }
+        return imageData;
+    }
 
+    // --- Single slice preview ---
+    function updateSlicePreview(z) {
+        if (!currentResult) return;
+
+        var N = currentResult.resolution;
+        var singleCanvas = document.getElementById('preview-canvas');
+        var ctx = singleCanvas.getContext('2d');
+        singleCanvas.width = N;
+        singleCanvas.height = N;
+
+        var imageData = buildSliceImageData(z);
         ctx.putImageData(imageData, 0, 0);
 
         document.getElementById('z-label').textContent = z;
+
+        // Update tile canvas too if in tile mode
+        if (tileMode) {
+            updateTilePreview(z);
+        }
+    }
+
+    // --- 3x3 tile preview ---
+    function updateTilePreview(z) {
+        if (!currentResult) return;
+
+        var N = currentResult.resolution;
+        var tileCanvas = document.getElementById('tile-canvas');
+        var ctx = tileCanvas.getContext('2d');
+        var tileCount = 3;
+        tileCanvas.width = N * tileCount;
+        tileCanvas.height = N * tileCount;
+
+        var imageData = buildSliceImageData(z);
+
+        // Create a temp canvas for the single tile
+        var tmp = document.createElement('canvas');
+        tmp.width = N;
+        tmp.height = N;
+        tmp.getContext('2d').putImageData(imageData, 0, 0);
+
+        // Draw 3x3 grid
+        for (var ty = 0; ty < tileCount; ty++) {
+            for (var tx = 0; tx < tileCount; tx++) {
+                ctx.drawImage(tmp, tx * N, ty * N);
+            }
+        }
+    }
+
+    // --- Toggle preview mode ---
+    function setTileMode(enabled) {
+        tileMode = enabled;
+        var singleCanvas = document.getElementById('preview-canvas');
+        var tileCanvas = document.getElementById('tile-canvas');
+        var btnSingle = document.getElementById('btn-single');
+        var btnTile = document.getElementById('btn-tile');
+
+        if (enabled) {
+            singleCanvas.style.display = 'none';
+            tileCanvas.style.display = 'block';
+            btnSingle.classList.remove('active');
+            btnTile.classList.add('active');
+            // Render tile view
+            var z = parseInt(document.getElementById('z-slider').value, 10);
+            updateTilePreview(z);
+        } else {
+            singleCanvas.style.display = 'block';
+            tileCanvas.style.display = 'none';
+            btnSingle.classList.add('active');
+            btnTile.classList.remove('active');
+        }
     }
 
     // --- Handle worker result ---
@@ -222,7 +284,6 @@
         var signature = [137, 80, 78, 71, 13, 10, 26, 10];
 
         // IHDR chunk: 13 bytes data
-        // width(4) + height(4) + bitDepth(1) + colorType(1) + compression(1) + filter(1) + interlace(1)
         var ihdrData = new Uint8Array(13);
         writeU32(ihdrData, 0, width);
         writeU32(ihdrData, 4, height);
@@ -237,14 +298,11 @@
             var len = chunkData.length;
             var chunk = new Uint8Array(4 + 4 + len + 4);
             writeU32(chunk, 0, len);
-            // Type bytes
             chunk[4] = type.charCodeAt(0);
             chunk[5] = type.charCodeAt(1);
             chunk[6] = type.charCodeAt(2);
             chunk[7] = type.charCodeAt(3);
-            // Data
             chunk.set(chunkData, 8);
-            // CRC over type + data
             var crcVal = crc32(chunk, 4, 4 + len);
             writeU32(chunk, 8 + len, crcVal);
             return chunk;
@@ -361,6 +419,14 @@
         document.getElementById('btn-png').addEventListener('click', downloadPNG);
         document.getElementById('btn-raw').addEventListener('click', downloadRAW);
         document.getElementById('btn-json').addEventListener('click', downloadJSON);
+
+        // Bind preview mode toggle
+        document.getElementById('btn-single').addEventListener('click', function () {
+            setTileMode(false);
+        });
+        document.getElementById('btn-tile').addEventListener('click', function () {
+            setTileMode(true);
+        });
 
         // Bind Z slider
         document.getElementById('z-slider').addEventListener('input', function () {

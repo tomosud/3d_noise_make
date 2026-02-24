@@ -95,14 +95,18 @@
         var w = fade(zf);
 
         // Hash 8 corners — chained permutation lookup
-        var h000 = perm[perm[perm[xi0] + yi0] + zi0] % 12;
-        var h100 = perm[perm[perm[xi1] + yi0] + zi0] % 12;
-        var h010 = perm[perm[perm[xi0] + yi1] + zi0] % 12;
-        var h110 = perm[perm[perm[xi1] + yi1] + zi0] % 12;
-        var h001 = perm[perm[perm[xi0] + yi0] + zi1] % 12;
-        var h101 = perm[perm[perm[xi1] + yi0] + zi1] % 12;
-        var h011 = perm[perm[perm[xi0] + yi1] + zi1] % 12;
-        var h111 = perm[perm[perm[xi1] + yi1] + zi1] % 12;
+        // Apply & 255 to all coordinates before indexing to keep within
+        // the 256-entry base table (doubled to 512). This prevents
+        // out-of-bounds access when period > 256 at high octaves.
+        // Periodicity is preserved because pmod already wraps coords.
+        var h000 = perm[(perm[(perm[xi0 & 255] + yi0) & 255] + zi0) & 255] % 12;
+        var h100 = perm[(perm[(perm[xi1 & 255] + yi0) & 255] + zi0) & 255] % 12;
+        var h010 = perm[(perm[(perm[xi0 & 255] + yi1) & 255] + zi0) & 255] % 12;
+        var h110 = perm[(perm[(perm[xi1 & 255] + yi1) & 255] + zi0) & 255] % 12;
+        var h001 = perm[(perm[(perm[xi0 & 255] + yi0) & 255] + zi1) & 255] % 12;
+        var h101 = perm[(perm[(perm[xi1 & 255] + yi0) & 255] + zi1) & 255] % 12;
+        var h011 = perm[(perm[(perm[xi0 & 255] + yi1) & 255] + zi1) & 255] % 12;
+        var h111 = perm[(perm[(perm[xi1 & 255] + yi1) & 255] + zi1) & 255] % 12;
 
         // Gradient dot products
         var n000 = grad3dot(h000, xf, yf, zf);
