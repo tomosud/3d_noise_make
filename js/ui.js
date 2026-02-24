@@ -164,19 +164,115 @@
         setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     }
 
+    // ============================================================
+    // Minimal 16-bit grayscale PNG encoder using pako for zlib
+    // PNG spec: signature + IHDR + IDAT(s) + IEND
+    // ============================================================
+    function encodePNG16Gray(data, width, height) {
+        // data: Uint8Array of big-endian 16-bit grayscale (2 bytes/pixel)
+        var bytesPerPixel = 2; // 16-bit grayscale
+
+        // Build raw scanlines: filter_byte(0) + row data for each row
+        var rowBytes = width * bytesPerPixel;
+        var rawSize = height * (1 + rowBytes);
+        var raw = new Uint8Array(rawSize);
+        var offset = 0;
+        for (var y = 0; y < height; y++) {
+            raw[offset++] = 0; // filter: None
+            var srcOffset = y * rowBytes;
+            for (var i = 0; i < rowBytes; i++) {
+                raw[offset++] = data[srcOffset + i];
+            }
+        }
+
+        // Compress with pako (zlib deflate)
+        var compressed = pako.deflate(raw);
+
+        // --- Build PNG file ---
+        // Helper: write 4-byte big-endian uint32
+        function writeU32(arr, pos, val) {
+            arr[pos]     = (val >>> 24) & 0xFF;
+            arr[pos + 1] = (val >>> 16) & 0xFF;
+            arr[pos + 2] = (val >>> 8) & 0xFF;
+            arr[pos + 3] = val & 0xFF;
+        }
+
+        // CRC32 table (standard PNG CRC)
+        var crcTable = null;
+        function makeCRCTable() {
+            crcTable = new Uint32Array(256);
+            for (var n = 0; n < 256; n++) {
+                var c = n;
+                for (var k = 0; k < 8; k++) {
+                    c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                }
+                crcTable[n] = c;
+            }
+        }
+        function crc32(buf, start, len) {
+            if (!crcTable) makeCRCTable();
+            var crc = 0xFFFFFFFF;
+            for (var i = start; i < start + len; i++) {
+                crc = crcTable[(crc ^ buf[i]) & 0xFF] ^ (crc >>> 8);
+            }
+            return (crc ^ 0xFFFFFFFF) >>> 0;
+        }
+
+        // PNG signature: 8 bytes
+        var signature = [137, 80, 78, 71, 13, 10, 26, 10];
+
+        // IHDR chunk: 13 bytes data
+        // width(4) + height(4) + bitDepth(1) + colorType(1) + compression(1) + filter(1) + interlace(1)
+        var ihdrData = new Uint8Array(13);
+        writeU32(ihdrData, 0, width);
+        writeU32(ihdrData, 4, height);
+        ihdrData[8]  = 16; // bit depth
+        ihdrData[9]  = 0;  // color type: grayscale
+        ihdrData[10] = 0;  // compression: deflate
+        ihdrData[11] = 0;  // filter: adaptive
+        ihdrData[12] = 0;  // interlace: none
+
+        // Build chunk: length(4) + type(4) + data + crc(4)
+        function buildChunk(type, chunkData) {
+            var len = chunkData.length;
+            var chunk = new Uint8Array(4 + 4 + len + 4);
+            writeU32(chunk, 0, len);
+            // Type bytes
+            chunk[4] = type.charCodeAt(0);
+            chunk[5] = type.charCodeAt(1);
+            chunk[6] = type.charCodeAt(2);
+            chunk[7] = type.charCodeAt(3);
+            // Data
+            chunk.set(chunkData, 8);
+            // CRC over type + data
+            var crcVal = crc32(chunk, 4, 4 + len);
+            writeU32(chunk, 8 + len, crcVal);
+            return chunk;
+        }
+
+        var ihdrChunk = buildChunk('IHDR', ihdrData);
+        var idatChunk = buildChunk('IDAT', compressed);
+        var iendChunk = buildChunk('IEND', new Uint8Array(0));
+
+        // Assemble full PNG
+        var totalSize = 8 + ihdrChunk.length + idatChunk.length + iendChunk.length;
+        var png = new Uint8Array(totalSize);
+        var pos = 0;
+        for (var s = 0; s < 8; s++) png[pos++] = signature[s];
+        png.set(ihdrChunk, pos); pos += ihdrChunk.length;
+        png.set(idatChunk, pos); pos += idatChunk.length;
+        png.set(iendChunk, pos);
+
+        return png;
+    }
+
     function downloadPNG() {
         if (!currentResult) return;
         var layout = currentResult.layout;
 
-        // UPNG.encodeLL: encode 16-bit grayscale PNG
-        var pngData = UPNG.encodeLL(
-            [currentResult.atlasBuffer],
-            layout.atlasWidth,
-            layout.atlasHeight,
-            1,    // 1 channel (grayscale)
-            0,    // no alpha
-            16    // 16-bit depth
-        );
+        // atlasBuffer is already big-endian 16-bit grayscale
+        var data = new Uint8Array(currentResult.atlasBuffer);
+        var pngData = encodePNG16Gray(data, layout.atlasWidth, layout.atlasHeight);
 
         var blob = new Blob([pngData], { type: 'image/png' });
         var N = currentResult.resolution;
