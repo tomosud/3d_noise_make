@@ -7,8 +7,11 @@ UE向けのVolume Texture用に、タイル可能な3D雲/煙密度ノイズを�
 
 ## Quick Start
 
-
-
+### ローカル実行
+```
+run.bat
+```
+ブラウザで `http://localhost:8090/index.html` が自動で開く。
 
 ### GitHub Pages
 静的ファイルのみで構成されているため、そのままGitHub Pagesでホスト可能。
@@ -19,9 +22,9 @@ UE向けのVolume Texture用に、タイル可能な3D雲/煙密度ノイズを�
 |-----------|-------|---------|-------------|
 | Resolution (N) | 16, 32, 64, 128, 256 | 64 | ボリューム解像度（N x N x N） |
 | Seed | 0 - 999999 | 42 | 乱数シード |
-| Frequency | 1 - 32 | 4 | ベース周波数（整数推奨） |
+| Frequency | 1, 2, 3, 4, 6, 8, 12, 16, 32 | 4 | ベース周波数（整数のみ選択可） |
 | Octaves | 1 - 8 | 6 | fBmオクターブ数 |
-| Lacunarity | 1.0 - 4.0 | 2.0 | 周波数倍率（2.0推奨） |
+| Lacunarity | 2, 3, 4 | 2 | 周波数倍率（整数のみ選択可） |
 | Gain | 0.1 - 1.0 | 0.5 | 振幅減衰率 |
 | Domain Warp | 0.0 - 1.0 | 0.0 | ドメインワープ強度（0=OFF） |
 | Gamma | 0.1 - 5.0 | 1.0 | ガンマ補正 |
@@ -30,8 +33,33 @@ UE向けのVolume Texture用に、タイル可能な3D雲/煙密度ノイズを�
 | Threshold | 0.0 - 0.9 | 0.0 | 閾値（これ以下を0にする） |
 
 ### タイル性に関する注意
-- `Frequency` は整数、`Lacunarity` は 2.0 を推奨。これにより各オクターブの周期が整数になり完全なタイル性が保証される
+- `Frequency` と `Lacunarity` は整数のみ選択可能。これにより各オクターブの周期 `frequency * lacunarity^i` が常に整数になり、完全なタイル性が保証される
 - `Domain Warp` を使用すると、座標の歪みによりタイル性が近似になる（UIに警告表示）
+
+## Features
+
+### タイルプレビュー
+- **Single**: 1枚のZスライスを表示
+- **Tile (3x3)**: 同じスライスを3x3グリッドで並べて表示し、境界の繋がりを視覚的に確認
+
+### URL共有
+- Generate実行時に全パラメータがURLクエリに反映される
+- 例: `?n=64&s=42&f=4&o=6&l=2&g=0.5&w=0&gm=1&br=0&ct=1&th=0`
+- そのURLを共有すると、開いた人が同じ設定で再現可能
+
+| Key | Parameter |
+|-----|-----------|
+| `n` | Resolution |
+| `s` | Seed |
+| `f` | Frequency |
+| `o` | Octaves |
+| `l` | Lacunarity |
+| `g` | Gain |
+| `w` | Domain Warp |
+| `gm` | Gamma |
+| `br` | Brightness |
+| `ct` | Contrast |
+| `th` | Threshold |
 
 ## Output Formats
 
@@ -64,7 +92,7 @@ UE向けのVolume Texture用に、タイル可能な3D雲/煙密度ノイズを�
     "seed": 42,
     "frequency": 4,
     "octaves": 6,
-    "lacunarity": 2.0,
+    "lacunarity": 2,
     "gain": 0.5,
     "warpStrength": 0,
     "gamma": 1.0,
@@ -107,12 +135,11 @@ UE向けのVolume Texture用に、タイル可能な3D雲/煙密度ノイズを�
 
 ### ノイズアルゴリズム
 - **周期的3D Perlinノイズ**: 格子座標をモジュロ演算でラップすることで厳密な周期性を実現
-- **fBm**: 各オクターブで `period = round(frequency * lacunarity^i)` を使用
+- **fBm**: 各オクターブで `period = frequency * lacunarity^i`（整数制約により常に整数）
 - **Domain Warp**: オフセットノイズで座標を変位させ、雲状のパターンを強化
 
 ### 依存ライブラリ（CDN）
-- [pako.js](https://github.com/nickel-tech/pako) v2.1.0 — zlib圧縮
-- [UPNG.js](https://github.com/nickel-tech/UPNG.js) v2.1.0 — 16bit PNGエンコード
+- [pako.js](https://github.com/nodeca/pako) v2.1.0 — zlib圧縮（16bit PNGエンコード用）
 
 ### File Structure
 ```
@@ -121,12 +148,6 @@ js/
   noise.js          -- 周期的3D Perlinノイズ + fBm
   generator.js      -- ボリューム生成、アトラスレイアウト、16bitエンコード
   worker.js         -- WebWorker（バックグラウンド生成）
-  ui.js             -- UI制御、プレビュー、ダウンロード
+  ui.js             -- UI制御、プレビュー、ダウンロード、URL共有
 run.bat             -- ローカルHTTPサーバー起動
 ```
-
-### ローカル実行
-```
-run.bat
-```
-ブラウザで `http://localhost:8090/index.html` が自動で開く。
