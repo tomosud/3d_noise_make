@@ -9,6 +9,66 @@
     var currentResult = null;
     var tileMode = false; // false = single, true = 3x3 tile
 
+    // --- URL parameter keys (short names for compact URLs) ---
+    var PARAM_KEYS = [
+        { id: 'resolution',   key: 'n',    type: 'int' },
+        { id: 'seed',         key: 's',    type: 'int' },
+        { id: 'frequency',    key: 'f',    type: 'int' },
+        { id: 'octaves',      key: 'o',    type: 'int' },
+        { id: 'lacunarity',   key: 'l',    type: 'int' },
+        { id: 'gain',         key: 'g',    type: 'float' },
+        { id: 'warpStrength', key: 'w',    type: 'float' },
+        { id: 'gamma',        key: 'gm',   type: 'float' },
+        { id: 'brightness',   key: 'br',   type: 'float' },
+        { id: 'contrast',     key: 'ct',   type: 'float' },
+        { id: 'threshold',    key: 'th',   type: 'float' }
+    ];
+
+    // --- Write current config to URL query string ---
+    function configToURL(config) {
+        var params = new URLSearchParams();
+        for (var i = 0; i < PARAM_KEYS.length; i++) {
+            var p = PARAM_KEYS[i];
+            var val = config[p.id];
+            if (val !== undefined && val !== null) {
+                params.set(p.key, p.type === 'float' ? parseFloat(val.toFixed(4)) : val);
+            }
+        }
+        var newURL = window.location.pathname + '?' + params.toString();
+        history.replaceState(null, '', newURL);
+    }
+
+    // --- Read URL query string and apply to UI ---
+    function applyURLParams() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.toString() === '') return;
+
+        for (var i = 0; i < PARAM_KEYS.length; i++) {
+            var p = PARAM_KEYS[i];
+            var val = params.get(p.key);
+            if (val === null) continue;
+
+            var el = document.getElementById(p.id);
+            if (!el) continue;
+
+            // For select elements, check if option exists
+            if (el.tagName === 'SELECT') {
+                var options = el.options;
+                var found = false;
+                for (var j = 0; j < options.length; j++) {
+                    if (options[j].value === val) {
+                        el.value = val;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) continue;
+            } else {
+                el.value = val;
+            }
+        }
+    }
+
     // --- Read all parameters from UI ---
     function readConfig() {
         return {
@@ -359,6 +419,9 @@
         var config = readConfig();
         if (!validateConfig(config)) return;
 
+        // Update URL with current config
+        configToURL(config);
+
         setUIBusy(true);
         enableDownloads(false);
         currentResult = null;
@@ -390,6 +453,9 @@
 
     // --- Init ---
     function init() {
+        // Restore settings from URL params (before anything else)
+        applyURLParams();
+
         // Create worker
         worker = new Worker('js/worker.js');
 
