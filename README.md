@@ -7,14 +7,9 @@ UE向けのVolume Texture用に、タイル可能な3D雲/煙密度ノイズを�
 
 ## Quick Start
 
-### ローカル実行
-```
-run.bat
-```
-ブラウザで `http://localhost:8090/index.html` が自動で開く。
+https://tomosud.github.io/3d_noise_make/
 
-### GitHub Pages
-静的ファイルのみで構成されているため、そのままGitHub Pagesでホスト可能。
+
 
 ## Parameters
 
@@ -151,3 +146,11 @@ js/
   ui.js             -- UI制御、プレビュー、ダウンロード、URL共有
 run.bat             -- ローカルHTTPサーバー起動
 ```
+### ローカル実行
+```
+run.bat
+```
+ブラウザで `http://localhost:8090/index.html` が自動で開く。
+
+### GitHub Pages
+静的ファイルのみで構成されているため、そのままGitHub Pagesでホスト可能。
