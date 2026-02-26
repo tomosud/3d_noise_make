@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 
-set PORT=8090
+set PORT=8099
 
 :: Check if port is already in use
 netstat -an | findstr ":%PORT% " | findstr "LISTENING" >nul 2>&1

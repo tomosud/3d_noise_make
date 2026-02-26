@@ -115,8 +115,6 @@
 
     function enableDownloads(enabled) {
         document.getElementById('btn-png').disabled = !enabled;
-        document.getElementById('btn-raw').disabled = !enabled;
-        document.getElementById('btn-json').disabled = !enabled;
     }
 
     // --- Progress update ---
@@ -397,23 +395,6 @@
         triggerDownload(blob, 'noise3d_' + N + '.png');
     }
 
-    function downloadRAW() {
-        if (!currentResult) return;
-        var N = currentResult.resolution;
-
-        // Generate RAW from volume data
-        var rawBuffer = GeneratorModule.volumeToRAW16(currentResult.volume, N);
-        var blob = new Blob([rawBuffer], { type: 'application/octet-stream' });
-        triggerDownload(blob, 'noise3d_' + N + '.raw');
-    }
-
-    function downloadJSON() {
-        if (!currentResult) return;
-        var json = JSON.stringify(currentResult.metadata, null, 2);
-        var blob = new Blob([json], { type: 'application/json' });
-        triggerDownload(blob, 'noise3d_' + currentResult.resolution + '.json');
-    }
-
     // --- Generate button ---
     function onGenerate() {
         var config = readConfig();
@@ -483,8 +464,6 @@
         // Bind buttons
         document.getElementById('btn-generate').addEventListener('click', onGenerate);
         document.getElementById('btn-png').addEventListener('click', downloadPNG);
-        document.getElementById('btn-raw').addEventListener('click', downloadRAW);
-        document.getElementById('btn-json').addEventListener('click', downloadJSON);
 
         // Bind preview mode toggle
         document.getElementById('btn-single').addEventListener('click', function () {

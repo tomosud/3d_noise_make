@@ -85,9 +85,18 @@
     }
 
     // ---- Atlas Layout ----
+    // Finds the largest factor of N that is <= sqrt(N), ensuring exact fit (no gaps).
+    // e.g. N=64 -> 8x8, N=128 -> 16x8
     function computeAtlasLayout(N) {
-        var tilesX = Math.ceil(Math.sqrt(N));
-        var tilesY = Math.ceil(N / tilesX);
+        var sqrtN = Math.sqrt(N);
+        var tilesY = 1;
+        for (var i = Math.floor(sqrtN); i >= 1; i--) {
+            if (N % i === 0) {
+                tilesY = i;
+                break;
+            }
+        }
+        var tilesX = N / tilesY;
         return {
             tilesX: tilesX,
             tilesY: tilesY,
