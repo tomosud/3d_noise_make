@@ -3,6 +3,8 @@
 UE向けのVolume Texture用に、タイル可能な3D雲/煙密度ノイズを生成するWebアプリ。
 16bitグレースケールの2Dアトラス画像（PNG）を出力し、UEにインポートしてVolume Textureとして利用できる。
 
+<img width="579" height="75" alt="image" src="https://github.com/user-attachments/assets/16371c11-3e12-41bf-8985-3cb4f14d9ce4" />
+
 ## Quick Start
 
 https://tomosud.github.io/3d_noise_make/
